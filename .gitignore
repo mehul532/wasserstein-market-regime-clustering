@@ -22,8 +22,10 @@ env/
 !.env.example
 
 # Data and generated artifacts
-data/raw/
-data/processed/
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
 outputs/
 artifacts/
 models/
