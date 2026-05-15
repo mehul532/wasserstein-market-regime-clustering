@@ -10,14 +10,15 @@ Wasserstein k-means implementation.
 
 The project is designed as a polished quant/data science portfolio repo:
 readable math, tested implementation, baseline comparisons, diagnostic plots,
-and an illustrative regime-aware backtest with explicit look-ahead controls.
+and an illustrative regime-aware backtest path with explicit no-future-data
+controls.
 
 ## Research Background
 
 The implementation is motivated by:
 
-1. Horvath, Issa, and Muguruza, *Clustering Market Regimes using the Wasserstein Distance*
-2. Zhuang, Chen, and Yang, *Wasserstein K-means for clustering probability distributions*
+1. Blanka Horvath, Zacharia Issa, and Aitor Muguruza, *Clustering Market Regimes using the Wasserstein Distance*, 2021. [arXiv:2110.11848](https://arxiv.org/abs/2110.11848), [SSRN 3947905](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3947905).
+2. Yubo Zhuang, Xiaohui Chen, and Yun Yang, *Wasserstein K-means for clustering probability distributions*, NeurIPS 2022. [arXiv:2209.06975](https://arxiv.org/abs/2209.06975).
 3. Related optimal transport methods for distributional time-series clustering
 
 Traditional regime models often reduce each window to summary statistics such
@@ -110,6 +111,11 @@ Run the script version:
 python scripts/run_spy_experiment.py --ticker SPY --window 63 --clusters 3
 ```
 
+The script uses full-sample Wasserstein clustering for exploratory regime plots
+and silhouette diagnostics. Its printed backtest metrics use the stricter
+walk-forward helper, which refits centroids only on windows available at each
+decision date and shifts the position into the next return period.
+
 Run tests:
 
 ```bash
@@ -124,6 +130,9 @@ The SPY experiment writes figures to `reports/figures/`, including:
 - Wasserstein centroid quantile functions
 - Regime transition matrix
 
+Tracked sample figures are intentionally small PNG files suitable for GitHub
+rendering. Raw downloaded data under `data/raw/` is ignored by Git.
+
 The notebook `notebooks/02_wasserstein_regime_clustering.ipynb` runs k=2, k=3,
 and k=4, compares silhouette scores, plots regimes over price, visualizes
 centroid distributions, and compares the Wasserstein model against KMeans on
@@ -132,9 +141,14 @@ moment features.
 ## Backtest Caveat
 
 The backtest is illustrative, not predictive. Regime labels are unsupervised and
-do not guarantee future returns. The implementation shifts positions so labels
-can affect only subsequent returns, and the default high-risk regime selection
-is walk-forward: it uses only volatility observed up to each decision date.
+do not guarantee future returns. The stricter walk-forward helper fits
+Wasserstein centroids only on historical windows available at each decision
+date, identifies the high-risk centroid from historical centroid dispersion,
+and shifts positions so labels can affect only subsequent returns.
+
+If you call `regime_strategy_backtest` with labels from a model fit on the full
+sample, the position timing is shifted correctly, but the labels themselves are
+still in-sample diagnostics rather than a fully out-of-sample signal.
 
 This project is not investment advice.
 
@@ -149,6 +163,8 @@ This project is not investment advice.
   are interpretations based on diagnostics, not labels learned from future
   outcomes.
 - Data quality depends on Yahoo Finance through `yfinance`.
+- The implementation demonstrates the 1D equal-sample empirical case; it is not
+  a full reproduction of every experiment, benchmark, or theorem in the papers.
 
 ## Git Workflow
 

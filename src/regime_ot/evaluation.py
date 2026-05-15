@@ -91,25 +91,28 @@ def transition_matrix(labels: np.ndarray) -> pd.DataFrame:
 def compare_regime_future_returns(
     labels: np.ndarray,
     forward_returns: pd.Series | np.ndarray,
+    returns_are_forward: bool = False,
 ) -> pd.DataFrame:
     """Compare next-period returns by regime label without same-period leakage.
 
-    The label at position t is paired with the return at t+1. This makes the
-    function safe when callers pass realized returns indexed like the labels.
-    If callers already precomputed forward returns, they should pass a series
-    whose value at t is the return realized after t and set the last value to
-    missing before calling.
+    By default, callers pass realized returns aligned with the labels; the
+    function pairs label t with return t+1. If returns are already forward
+    shifted so that the value at t is the return after t, pass
+    ``returns_are_forward=True`` to avoid shifting twice.
     """
     labels_arr = np.asarray(labels, dtype=int)
     returns = pd.Series(forward_returns).reset_index(drop=True)
     if len(returns) != len(labels_arr):
         raise ValueError("forward_returns and labels must have the same length")
 
-    frame = pd.DataFrame(
-        {
-            "label": labels_arr[:-1],
-            "future_return": returns.shift(-1).iloc[:-1].to_numpy(),
-        }
-    ).dropna()
+    if returns_are_forward:
+        frame = pd.DataFrame({"label": labels_arr, "future_return": returns}).dropna()
+    else:
+        frame = pd.DataFrame(
+            {
+                "label": labels_arr[:-1],
+                "future_return": returns.shift(-1).iloc[:-1].to_numpy(),
+            }
+        ).dropna()
     grouped = frame.groupby("label")["future_return"]
     return grouped.agg(["count", "mean", "std", "min", "max"])

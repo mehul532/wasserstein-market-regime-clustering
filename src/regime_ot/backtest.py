@@ -38,6 +38,110 @@ def _walk_forward_high_risk_regime(
     return pd.Series(high_risk, index=label_series.index, name="high_risk_regime")
 
 
+def walk_forward_regime_strategy_backtest(
+    price_series: pd.Series,
+    windows: np.ndarray,
+    dates: pd.Index | list,
+    n_clusters: int = 3,
+    min_train_windows: int = 60,
+    refit_every: int = 20,
+    p: int | float = 2,
+    max_iter: int = 100,
+    n_init: int = 3,
+    random_state: int | None = 42,
+) -> tuple[pd.DataFrame, dict[str, float]]:
+    """Run a stricter walk-forward long/cash regime strategy.
+
+    At each decision date, the model is fit only on windows whose end dates are
+    not after that decision date. The current observable window is then assigned
+    to the nearest historical Wasserstein centroid. The high-risk regime is the
+    fitted centroid with the largest return dispersion, and the resulting
+    position is shifted so it can affect only subsequent daily returns.
+
+    This is still illustrative and unsupervised, but it avoids the stronger
+    in-sample assumption of fitting one clustering model on the full history
+    before computing backtest signals.
+    """
+    from regime_ot.wkmeans import WassersteinKMeans
+
+    prices = price_series.dropna().sort_index().astype(float)
+    if prices.empty:
+        raise ValueError("price_series must not be empty")
+
+    window_arr = np.asarray(windows, dtype=float)
+    if window_arr.ndim != 2:
+        raise ValueError("windows must be a two-dimensional array")
+    if not np.all(np.isfinite(window_arr)):
+        raise ValueError("windows contains non-finite values")
+
+    decision_dates = pd.Index(dates)
+    if len(decision_dates) != len(window_arr):
+        raise ValueError("dates and windows must have the same length")
+    if n_clusters <= 0:
+        raise ValueError("n_clusters must be positive")
+    if refit_every <= 0:
+        raise ValueError("refit_every must be positive")
+
+    min_required = max(int(min_train_windows), int(n_clusters))
+    raw_position = pd.Series(0.0, index=decision_dates, name="raw_position")
+    online_label = pd.Series(np.nan, index=decision_dates, name="online_label")
+    high_risk = pd.Series(np.nan, index=decision_dates, name="high_risk_regime")
+    centroid_vol = pd.Series(np.nan, index=decision_dates, name="high_risk_centroid_std")
+
+    model: WassersteinKMeans | None = None
+    last_fit_at = -1
+    for i, date in enumerate(decision_dates):
+        observed_count = i + 1
+        if observed_count < min_required:
+            continue
+        if model is None or observed_count - last_fit_at >= refit_every:
+            seed = None if random_state is None else int(random_state) + i
+            model = WassersteinKMeans(
+                n_clusters=n_clusters,
+                p=p,
+                max_iter=max_iter,
+                n_init=n_init,
+                random_state=seed,
+            ).fit(window_arr[:observed_count])
+            last_fit_at = observed_count
+
+        label = int(model.predict(window_arr[i : i + 1])[0])
+        centroid_std = np.std(model.centroids_, axis=1, ddof=1)
+        high_risk_label = int(np.nanargmax(centroid_std))
+        online_label.loc[date] = label
+        high_risk.loc[date] = high_risk_label
+        centroid_vol.loc[date] = float(centroid_std[high_risk_label])
+        raw_position.loc[date] = 0.0 if label == high_risk_label else 1.0
+
+    asset_returns = prices.pct_change().fillna(0.0)
+    daily_raw_position = raw_position.reindex(prices.index, method="ffill").fillna(0.0)
+    daily_label = online_label.reindex(prices.index, method="ffill")
+    daily_high_risk = high_risk.reindex(prices.index, method="ffill")
+    daily_centroid_vol = centroid_vol.reindex(prices.index, method="ffill")
+
+    position = daily_raw_position.shift(1).fillna(0.0).rename("position")
+    strategy_returns = (position * asset_returns).rename("strategy_return")
+    equity_curve = (1.0 + strategy_returns).cumprod().rename("equity_curve")
+    turnover = position.diff().abs().fillna(position.abs()).rename("turnover")
+
+    results = pd.DataFrame(
+        {
+            "price": prices,
+            "asset_return": asset_returns,
+            "online_label": daily_label,
+            "high_risk_regime": daily_high_risk,
+            "high_risk_centroid_std": daily_centroid_vol,
+            "raw_position": daily_raw_position,
+            "position": position,
+            "strategy_return": strategy_returns,
+            "equity_curve": equity_curve,
+            "turnover": turnover,
+        }
+    )
+    metrics = performance_metrics(equity_curve, position=position)
+    return results, metrics
+
+
 def regime_strategy_backtest(
     price_series: pd.Series,
     labels: np.ndarray,
@@ -50,6 +154,12 @@ def regime_strategy_backtest(
     during the high-risk regime. If ``high_risk_regime`` is omitted, the regime
     with the largest realized volatility is selected walk-forward using only
     data available up to each label date.
+
+    This function assumes labels were supplied by the caller. If those labels
+    come from a model fit on the full sample, the trading rule is timing-safe
+    but the labels are still in-sample. Use
+    ``walk_forward_regime_strategy_backtest`` for a stricter no-future-data
+    experiment.
     """
     prices = price_series.dropna().sort_index().astype(float)
     if prices.empty:

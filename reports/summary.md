@@ -14,6 +14,14 @@ Expected generated figures:
 - `reports/figures/SPY_centroids.png`
 - `reports/figures/SPY_transitions.png`
 
-The backtest is illustrative and uses shifted positions so regime labels affect
-only subsequent returns. Regime labels are unsupervised and should not be
-interpreted as forecasts.
+The regime figures are exploratory, in-sample diagnostics. The script's printed
+backtest metrics use the walk-forward helper: centroids are fit only on windows
+available at each decision date, the high-risk regime is selected from centroid
+dispersion, and positions are shifted so signals affect only subsequent returns.
+
+Regime labels are unsupervised and should not be interpreted as forecasts.
+
+Research basis:
+
+- Horvath, Issa, and Muguruza, *Clustering Market Regimes using the Wasserstein Distance*, 2021.
+- Zhuang, Chen, and Yang, *Wasserstein K-means for clustering probability distributions*, NeurIPS 2022.

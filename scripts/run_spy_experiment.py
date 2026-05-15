@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    from regime_ot.backtest import regime_strategy_backtest
+    from regime_ot.backtest import walk_forward_regime_strategy_backtest
     from regime_ot.baselines import extract_moment_features, run_standard_kmeans
     from regime_ot.data import download_prices, load_cached_prices, save_prices
     from regime_ot.evaluation import silhouette_from_distance_matrix, transition_matrix
@@ -63,7 +63,16 @@ def main() -> None:
     features = extract_moment_features(windows)
     baseline = run_standard_kmeans(features, n_clusters=args.clusters)
     transitions = transition_matrix(model.labels_)
-    backtest, metrics = regime_strategy_backtest(price_series, model.labels_, dates)
+    min_train_windows = min(max(args.clusters * 10, 60), len(windows))
+    backtest, metrics = walk_forward_regime_strategy_backtest(
+        price_series,
+        windows,
+        dates,
+        n_clusters=args.clusters,
+        min_train_windows=min_train_windows,
+        refit_every=20,
+        random_state=42,
+    )
 
     figures_dir = REPO_ROOT / args.figures_dir
     figures_dir.mkdir(parents=True, exist_ok=True)
@@ -77,7 +86,7 @@ def main() -> None:
     print(f"Wasserstein silhouette: {silhouette:.4f}")
     print(f"Wasserstein inertia: {model.inertia_:.8f}")
     print(f"Moment KMeans regimes: {sorted(set(baseline['labels']))}")
-    print(f"Backtest final equity: {backtest['equity_curve'].iloc[-1]:.4f}")
+    print(f"Walk-forward backtest final equity: {backtest['equity_curve'].iloc[-1]:.4f}")
     for key, value in metrics.items():
         print(f"{key}: {value:.4f}")
 

@@ -31,3 +31,17 @@ def test_compare_regime_future_returns_uses_next_period_return():
 
     assert comparison.loc[0, "mean"] == 0.20
     assert comparison.loc[1, "mean"] == -0.30
+
+
+def test_compare_regime_future_returns_can_use_pre_shifted_returns():
+    labels = np.array([0, 1, 0])
+    forward_returns = pd.Series([0.20, -0.30, np.nan])
+
+    comparison = compare_regime_future_returns(
+        labels,
+        forward_returns,
+        returns_are_forward=True,
+    )
+
+    assert comparison.loc[0, "mean"] == 0.20
+    assert comparison.loc[1, "mean"] == -0.30
