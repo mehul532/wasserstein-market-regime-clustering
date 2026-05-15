@@ -14,6 +14,14 @@ Expected generated figures:
 - `reports/figures/SPY_centroids.png`
 - `reports/figures/SPY_transitions.png`
 
+## Figure Preview
+
+![SPY price with Wasserstein regimes](figures/SPY_regimes.png)
+
+![Wasserstein centroid quantile functions](figures/SPY_centroids.png)
+
+![SPY regime transition matrix](figures/SPY_transitions.png)
+
 The regime figures are exploratory, in-sample diagnostics. The script's printed
 backtest metrics use the walk-forward helper: centroids are fit only on windows
 available at each decision date, the high-risk regime is selected from centroid

@@ -2,16 +2,27 @@
 
 **K-means on full return distributions, not just mean and volatility.**
 
-This project is a Python research-reproduction workspace for market regime
-clustering with Wasserstein distance and optimal transport ideas. The core
-model treats each rolling window of returns as an empirical probability
-distribution, then clusters those distributions directly with a custom
-Wasserstein k-means implementation.
+This is a Python research-reproduction project for market regime clustering
+with Wasserstein distance and optimal transport ideas. It downloads market
+prices, converts rolling return windows into empirical probability
+distributions, clusters those full distributions with a custom Wasserstein
+k-means implementation, and compares the results with classical moment-based
+baselines.
 
-The project is designed as a polished quant/data science portfolio repo:
-readable math, tested implementation, baseline comparisons, diagnostic plots,
-and an illustrative regime-aware backtest path with explicit no-future-data
-controls.
+The main point: the Wasserstein model does **not** cluster only mean,
+volatility, skew, or other summary features. Those summaries are used only for
+baseline comparisons. The primary model compares entire sorted return
+distributions.
+
+## What This Repo Demonstrates
+
+- A from-scratch 1D Wasserstein k-means implementation for empirical return
+  distributions
+- SPY regime clustering with price overlays, centroid quantile plots, and
+  transition diagnostics
+- Moment-feature KMeans and Gaussian mixture baselines for comparison
+- An illustrative walk-forward backtest path with explicit timing controls
+- A tested package structure suitable for GitHub and portfolio review
 
 ## Research Background
 
@@ -59,6 +70,9 @@ therefore a sorted return distribution, not a mean/variance vector.
 ## Project Layout
 
 ```text
+notebooks/        # exploration, clustering, and backtest notebooks
+reports/figures/  # small tracked sample figures for GitHub preview
+scripts/          # reproducible experiment entry points
 src/regime_ot/
   data.py          # download and cache adjusted close prices
   returns.py       # log/simple returns and cleaning
@@ -70,9 +84,10 @@ src/regime_ot/
   plotting.py      # matplotlib regime diagnostics
   backtest.py      # illustrative walk-forward regime strategy
   cli.py           # command-line workflows
+tests/             # unit tests for math, clustering, evaluation, backtest
 ```
 
-## Setup
+## Quick Start
 
 Python 3.11+ is the intended runtime.
 
@@ -82,16 +97,16 @@ conda activate regime-ot
 pip install -e .
 ```
 
-If you prefer pip only:
+Run the primary SPY workflow:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+python scripts/run_spy_experiment.py --ticker SPY --window 63 --clusters 3
 ```
 
-## How To Run
+This downloads/cache data under `data/raw/`, fits the Wasserstein model, writes
+figures under `reports/figures/`, and prints clustering/backtest diagnostics.
+
+## Usage
 
 Download market data:
 
@@ -111,6 +126,15 @@ Run the script version:
 python scripts/run_spy_experiment.py --ticker SPY --window 63 --clusters 3
 ```
 
+If you prefer pip-only setup:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+```
+
 The script uses full-sample Wasserstein clustering for exploratory regime plots
 and silhouette diagnostics. Its printed backtest metrics use the stricter
 walk-forward helper, which refits centroids only on windows available at each
@@ -126,12 +150,16 @@ pytest
 
 The SPY experiment writes figures to `reports/figures/`, including:
 
-- SPY price with regime-colored background spans
-- Wasserstein centroid quantile functions
-- Regime transition matrix
+- `reports/figures/SPY_regimes.png`: SPY price with regime-colored background spans
+- `reports/figures/SPY_centroids.png`: Wasserstein centroid quantile functions
+- `reports/figures/SPY_transitions.png`: regime transition matrix
 
 Tracked sample figures are intentionally small PNG files suitable for GitHub
 rendering. Raw downloaded data under `data/raw/` is ignored by Git.
+
+![SPY price with Wasserstein regimes](reports/figures/SPY_regimes.png)
+
+![Wasserstein centroid quantile functions](reports/figures/SPY_centroids.png)
 
 The notebook `notebooks/02_wasserstein_regime_clustering.ipynb` runs k=2, k=3,
 and k=4, compares silhouette scores, plots regimes over price, visualizes
@@ -173,3 +201,7 @@ This project is not investment advice.
 - Do not commit secrets, virtual environments, caches, raw market data, or large
   generated artifacts.
 - Do not push unless explicitly requested.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
