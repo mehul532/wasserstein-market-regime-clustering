@@ -194,14 +194,6 @@ This project is not investment advice.
 - The implementation demonstrates the 1D equal-sample empirical case; it is not
   a full reproduction of every experiment, benchmark, or theorem in the papers.
 
-## Git Workflow
-
-- Work on `main` unless a separate feature branch is needed.
-- Commit after coherent milestones and passing checks.
-- Do not commit secrets, virtual environments, caches, raw market data, or large
-  generated artifacts.
-- Do not push unless explicitly requested.
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
